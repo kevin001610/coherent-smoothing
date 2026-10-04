@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="SCAS SP-03 兩支 MATLAB 程式（Shan-Kailath 空間平滑、Frost 與平滑 Frost）的互動圖解">
+<title>相干訊號與空間平滑</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700&display=swap">
+<style>
+/* layout: one reading column of lecture-note steps; each step = prose, then the instrument (controls + chart), then the matching MATLAB lines */
+:root{
+  --bg:#f2f5f7; --surface:#ffffff; --ink:#14212c; --ink2:#465868; --muted:#718292; --line:#d6dee5;
+  --accent:#0b6e7a; --accent-soft:#dff0f1; --code-bg:#eaeff3; --good:#17754a; --bad:#b93a2c;
+  --s-raw:#7b808a; --s-f:#2a78d6; --s-fb:#eb6834;
+  --display:"Noto Serif TC","Songti TC","PMingLiU",serif;
+  --body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0e151c; --surface:#16202a; --ink:#e7edf2; --ink2:#b4c1cd; --muted:#8495a4; --line:#2a3845;
+  --accent:#5fc5d0; --accent-soft:#15323a; --code-bg:#111a22; --good:#56c48d; --bad:#f08273;
+  --s-raw:#9aa1ab; --s-f:#3987e5; --s-fb:#d95926; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0e151c; --surface:#16202a; --ink:#e7edf2; --ink2:#b4c1cd; --muted:#8495a4; --line:#2a3845;
+  --accent:#5fc5d0; --accent-soft:#15323a; --code-bg:#111a22; --good:#56c48d; --bad:#f08273;
+  --s-raw:#9aa1ab; --s-f:#3987e5; --s-fb:#d95926; color-scheme:dark }
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.8}
+.wrap{max-width:860px;margin:0 auto;padding-inline:20px;padding-block:40px 80px;display:flex;flex-direction:column;gap:56px}
+header .eyebrow{font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;color:var(--accent);text-transform:uppercase}
+h1{font-family:var(--display);font-size:clamp(30px,6vw,44px);line-height:1.2;margin:8px 0 14px;text-wrap:balance}
+h2{font-family:var(--display);font-size:clamp(22px,4vw,27px);line-height:1.35;margin:0;text-wrap:balance}
+h3{font-size:17px;font-weight:700;margin:0}
+p{margin:0;max-width:40em}
+.lead{font-size:18px;color:var(--ink2)}
+section{display:flex;flex-direction:column;gap:18px;min-width:0}
+.step{font-family:var(--mono);font-size:12.5px;color:var(--muted);letter-spacing:.06em}
+.part{border-top:2px solid var(--ink);padding-top:14px}
+.part .step{color:var(--accent)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.brief{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:18px 20px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.brief .file{font-family:var(--mono);font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.brief dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:15px;line-height:1.65}
+.brief dt{color:var(--muted);white-space:nowrap}
+.brief dd{margin:0}
+.note{font-size:14px;color:var(--ink2);border-left:3px solid var(--line);padding-left:14px;max-width:46em}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel>h3{font-size:15px}
+.cap{font-size:14px;color:var(--ink2);max-width:46em}
+.controls{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:flex-end}
+.ctl{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink2);min-width:150px;flex:1 1 150px}
+.ctl output{font-family:var(--mono);color:var(--ink);font-variant-numeric:tabular-nums}
+.ctl .row{display:flex;justify-content:space-between;gap:8px}
+input[type=range]{width:100%;accent-color:var(--accent);margin:0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;align-self:flex-start}
+.seg button{white-space:nowrap;font:inherit;font-size:14px;padding:6px 14px;border:0;background:transparent;color:var(--ink2);cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface);font-weight:500}
+.btn{white-space:nowrap;font:inherit;font-size:14px;padding:6px 14px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.math{font-family:var(--mono);font-size:14.5px;background:var(--code-bg);border-radius:4px;padding:10px 14px;overflow-x:auto;white-space:nowrap}
+.math i{font-style:italic}
+code{font-family:var(--mono);font-size:.9em;background:var(--code-bg);padding:1px 5px;border-radius:3px}
+details{border:1px solid var(--line);border-radius:6px;background:var(--surface);min-width:0}
+summary{cursor:pointer;padding:9px 14px;font-size:14px;color:var(--ink2);font-weight:500}
+pre{margin:0;padding:12px 14px;border-top:1px solid var(--line);background:var(--code-bg);font-family:var(--mono);font-size:13px;line-height:1.6;overflow-x:auto;border-radius:0 0 6px 6px}
+pre .c{color:var(--muted)}
+.scroll{overflow-x:auto}
+.scroll svg{display:block;min-width:560px;width:100%;height:auto}
+/* charts */
+.chart{position:relative;min-width:0}
+.chart svg{display:block;touch-action:pan-y}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .axis{stroke:var(--muted);stroke-width:1}
+.chart text{font-family:var(--mono);font-size:11px;fill:var(--muted)}
+.chart text.lab{font-family:var(--body);font-size:12px;fill:var(--ink2)}
+.chart .ref{stroke:var(--ink2);stroke-width:1;stroke-dasharray:2 4}
+.chart .thr{stroke:var(--ink);stroke-width:1;stroke-dasharray:6 4}
+.chart .cur{stroke:var(--accent);stroke-width:1.5}
+.chart .cross{stroke:var(--ink2);stroke-width:1}
+.legend{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:13px;color:var(--ink2);margin-bottom:6px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend svg{display:inline-block}
+.tip{position:absolute;top:8px;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:6px 9px;font-size:12px;line-height:1.5;font-family:var(--mono);color:var(--ink);white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.12);z-index:2}
+.tip b{font-weight:500;color:var(--muted)}
+.sw{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.c-raw{stroke:var(--s-raw);fill:var(--s-raw)} .c-f{stroke:var(--s-f);fill:var(--s-f)} .c-fb{stroke:var(--s-fb);fill:var(--s-fb)} .c-ink{stroke:var(--ink);fill:var(--ink)}
+.b-raw{background:var(--s-raw)} .b-f{background:var(--s-f)} .b-fb{background:var(--s-fb)} .b-ink{background:var(--ink)}
+/* rank tiles */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tile{border:1px solid var(--line);border-radius:6px;padding:10px 12px;min-width:0}
+.tile .k{font-size:12.5px;color:var(--ink2);display:flex;align-items:center}
+.tile .v{font-family:var(--mono);font-size:30px;line-height:1.2;font-variant-numeric:tabular-nums}
+.tile .s{font-size:12.5px}
+.ok{color:var(--good)} .ng{color:var(--bad)}
+/* sub-array diagram */
+.sub{display:grid;grid-template-columns:repeat(10,1fr);gap:6px 4px;font-family:var(--mono);font-size:12px}
+.sub .el{aspect-ratio:1;max-width:38px;width:100%;justify-self:center;border-radius:50%;border:2px solid var(--ink2);display:grid;place-items:center;color:var(--ink2)}
+.sub .bar{height:24px;border-radius:4px;background:var(--accent-soft);border:1px solid var(--accent);color:var(--ink);display:grid;place-items:center;font-size:11.5px;white-space:nowrap;overflow:hidden}
+.status{font-size:14px;font-family:var(--mono)}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal;min-width:9.5em}
+th{font-weight:500;color:var(--ink2);font-size:13px}
+td{font-family:var(--mono)} td:first-child{font-family:var(--body)}
+.try{display:flex;flex-direction:column;gap:6px;margin:0;padding-left:20px;font-size:15px;max-width:44em}
+.diagram text{font-family:var(--body);font-size:13px;fill:var(--ink2)}
+.diagram .mono{font-family:var(--mono);font-size:12px}
+footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">SCAS SP-03 · 陣列訊號處理</div>
+  <h1>相干訊號與空間平滑</h1>
+  <p class="lead">兩支 MATLAB 教學程式處理的是同一件事：當干擾其實是訊號自己的回音時，陣列演算法為什麼會失效，又該怎麼修。這一頁把程式的每個步驟改成可以動手調的圖，由上往下讀就是程式的執行順序。</p>
+</header>
+
+<section>
+  <div class="two">
+    <div class="brief">
+      <div class="step">程式一 · EXAMPLE 1</div>
+      <h3>Shan-Kailath 空間平滑與秩恢復</h3>
+      <dl>
+        <dt>問題</dt><dd>三個方向的到達波完全相干時，共變異數矩陣的秩從 3 塌成 1，MUSIC 找不到正確方向。</dd>
+        <dt>解法</dt><dd>把陣列切成重疊的子陣，平均各子陣的共變異數，秩就回來了。</dd>
+        <dt>看什麼</dt><dd>特徵值分布、MUSIC 空間頻譜。</dd>
+      </dl>
+    </div>
+    <div class="brief">
+      <div class="step">程式二 · EXAMPLE 2</div>
+      <h3>Frost 與平滑 Frost 波束成形</h3>
+      <dl>
+        <dt>問題</dt><dd>約束式 LMS 波束成形器遇到相干干擾，會把想要的訊號一起抵消。</dd>
+        <dt>解法</dt><dd>讓同一組權重輪流處理每個子陣，等效於用平滑後的共變異數做自適應。</dd>
+        <dt>看什麼</dt><dd>相干場增益、波束圖、輸出波形。</dd>
+      </dl>
+    </div>
+  </div>
+  <p class="note">本頁用 JavaScript 重新實作兩支程式的運算。亂數產生器與 MATLAB 的 <code>rng(20260921,'twister')</code> 不同，所以數字和你在 MATLAB 跑出來的會有些微差異，趨勢與結論一致。</p>
+</section>
+
+<section>
+  <div class="step">基礎 1</div>
+  <h2>陣列怎麼分辨方向</h2>
+  <p>均勻線性陣列（ULA）是 M 個等間距排成一線的感測器。平面波從偏離正前方 θ 的方向斜著進來時，波前會依序掃過每個元件，相鄰元件收到的訊號差一段固定的時間延遲 d·sinθ / c。對窄頻訊號而言，時間延遲就是相位旋轉，所以每個方向都對應一組專屬的相位階梯。把這 M 個相位寫成一個複數向量，就是導向向量 a(θ)。</p>
+  <div class="panel">
+    <div class="controls">
+      <label class="ctl" for="th0"><span class="row"><span>入射角 θ</span><output id="th0o"></output></span>
+        <input type="range" id="th0" min="-60" max="60" step="1" value="30"></label>
+      <div class="ctl" style="flex:2 1 240px"><span>相鄰元件相位差</span><output id="dphi"></output></div>
+    </div>
+    <div class="scroll"><svg id="arr" class="diagram" viewBox="0 0 720 300" role="img" aria-label="平面波入射到 10 元件線性陣列，下方時鐘指針表示各元件收到的相位"></svg></div>
+    <p class="cap">上方斜線是波前，間隔一個波長。下方每個圓盤的指針是該元件收到的相位。θ = 0° 時波前同時到達，所有指針同向；θ 越大，相鄰指針轉得越多。陣列就是靠這個轉速分辨方向。</p>
+  </div>
+  <p>程式設定 <code>dLambda = 0.5</code>，也就是元件間距為半個波長。這是空間取樣不發生混疊的最大間距：間距再大，不同方向會產生一模一樣的相位階梯（柵瓣），陣列就分不出來。聲納、雷達、基地台天線與麥克風陣列估計來波方向（DOA）與做波束成形，用的都是這組相位差。</p>
+  <details><summary>對照程式：導向向量</summary>
+<pre>steer = @(m,theta) exp(-1j*2*pi*dLambda*(0:m-1).'*sind(theta));
+A = steer(M,thetaTrue);   <span class="c">% M×K，每一行是一個方向的相位階梯</span></pre></details>
+</section>
+
+<section>
+  <div class="step">基礎 2</div>
+  <h2>相干：三個方向，同一個波形</h2>
+  <p>兩支程式用同一個情境：0° 是想要的訊號，−30° 與 +30° 是干擾。關鍵在於三個到達波都是同一個波形 s<sub>0</sub> 乘上不同的複數增益 α（振幅與相位不同），也就是完全相干。物理上這就是多路徑：水下聲波經海面與海底反射、低仰角雷達波經海面反射、室內無線電經牆面反射，或是干擾機把你的訊號轉發回來。到達陣列的都是同一個訊號的複本。</p>
+  <div class="panel">
+    <div class="controls">
+      <div class="ctl"><span>訊源關係</span>
+        <div class="seg" data-seg><button type="button" id="cohA1" data-coh="1">完全相干</button><button type="button" id="cohA0" data-coh="0">互不相關</button></div></div>
+    </div>
+    <div id="chArr"></div>
+    <p class="cap">三個到達波的實部，取 60 個快照。相干時三條線只差一個固定的比例與相位，形狀完全綁在一起；互不相關時各走各的。</p>
+  </div>
+  <p>陣列資料的共變異數可以寫成下式，其中 R<sub>s</sub> 是訊源之間的相關矩陣：</p>
+  <div class="math"><i>R</i> = E[ <i>x x</i><sup>H</sup> ] = <i>A R<sub>s</sub> A</i><sup>H</sup> + σ² <i>I</i></div>
+  <p>訊源互不相關時 R<sub>s</sub> 是對角矩陣，秩等於訊源數 K = 3，R 會有 3 個大特徵值，撐起一個三維的訊號子空間。完全相干時 R<sub>s</sub> = α α<sup>H</sup>，秩只有 1。物理圖像是：三個平面波在陣列上疊成一個固定不動的干涉圖樣 Aα，每個快照只是這個圖樣乘上一個純量。對陣列而言，場上看起來只有「一個」訊源，而且它的空間圖樣不是任何單一方向的導向向量。</p>
+  <details><summary>對照程式：產生相干資料</summary>
+<pre>s0 = (randn(1,N)+1j*randn(1,N))/sqrt(2);          <span class="c">% 唯一的波形</span>
+alpha = [1; 2.2*exp(1j*0.55); 1.8*exp(-1j*0.90)];  <span class="c">% 三條路徑的複數增益</span>
+S = alpha*s0;                                      <span class="c">% rank(S) = 1</span>
+Xsig = A*S;
+noisePower = mean(abs(Xsig(:)).^2)/10^(SNRdB/10);
+V = sqrt(noisePower/2)*(randn(M,N)+1j*randn(M,N));
+X = Xsig + V;                                      <span class="c">% M×N 快照矩陣</span></pre></details>
+</section>
+
+<section>
+  <div class="part"><div class="step">程式一 · EXAMPLE 1</div></div>
+  <h2>把陣列切成子陣，秩就回來了</h2>
+  <p>空間平滑的做法是拿一個長度 L 的窗在陣列上滑動，得到 P = M − L + 1 個重疊的子陣。每個子陣看到的是同一組到達波，但因為子陣位置平移，三個到達波之間的相對相位各自多轉了一個不同的角度。把各子陣的共變異數取平均，等於對這些相對相位做平均，到達波之間的交叉項互相抵消，R<sub>s</sub> 就恢復成滿秩。</p>
+  <div class="math"><i>R</i><sub>F</sub> = (1/<i>P</i>) Σ<sub><i>p</i></sub> <i>R<sub>p</sub></i> ，　<i>R</i><sub>FB</sub> = ½ ( <i>R</i><sub>F</sub> + <i>J R</i><sub>F</sub><sup>*</sup> <i>J</i> )</div>
+  <p>R<sub>FB</sub>（前後向平滑，FBSS）再把陣列前後翻轉並取共軛。對稱的線性陣列倒過來看仍是合法的陣列，所以等於免費多了一倍的子陣。代價是有效孔徑從 M 縮成 L，主瓣變寬、角度解析度下降。</p>
+
+  <div class="panel">
+    <h3>情境參數</h3>
+    <div class="controls">
+      <div class="ctl"><span>訊源關係</span>
+        <div class="seg" data-seg><button type="button" id="cohB1" data-coh="1">完全相干</button><button type="button" id="cohB0" data-coh="0">互不相關</button></div></div>
+      <label class="ctl" for="L1"><span class="row"><span>子陣長度 L</span><output id="L1o"></output></span>
+        <input type="range" id="L1" min="4" max="10" step="1" value="8"></label>
+      <label class="ctl" for="snr"><span class="row"><span>SNR</span><output id="snro"></output></span>
+        <input type="range" id="snr" min="0" max="30" step="1" value="15"></label>
+      <button type="button" class="btn" id="reseed1">重新抽樣雜訊</button>
+      <button type="button" class="btn" id="reset1">回到程式預設</button>
+    </div>
+    <div class="sub" id="sub1" aria-label="子陣劃分示意"></div>
+    <div class="status" id="st1"></div>
+  </div>
+
+  <div class="panel">
+    <h3>特徵值分布與數值秩</h3>
+    <div class="tiles" id="tiles1"></div>
+    <div id="chEig"></div>
+    <p class="cap">特徵值由大到小排列，以最大值為 0 dB。高於 −12 dB 教學門檻的個數當作數值秩。大特徵值代表訊號子空間的維度，其餘是雜訊底。</p>
+  </div>
+
+  <p>MUSIC 利用的是正交性：真實方向的導向向量落在訊號子空間內，與雜訊子空間 E<sub>n</sub> 正交，分母趨近零而出現尖峰。</p>
+  <div class="math"><i>P</i>(θ) = 1 / ‖ <i>E</i><sub>n</sub><sup>H</sup> <i>a</i>(θ) ‖²</div>
+  <p>相干時訊號子空間只剩一維，而且指向的是合成圖樣 Aα。程式仍假設 K = 3，等於把兩個其實屬於雜訊的特徵向量當成訊號，沒有任何 a(θ) 與剩下的雜訊子空間正交，峰值就落在錯的位置。</p>
+  <div class="panel">
+    <h3>MUSIC 空間頻譜</h3>
+    <div id="chMusic"></div>
+    <div class="scroll"><table id="tbDoa"></table></div>
+    <p class="cap">垂直虛線是真實方向 −30°、0°、+30°。程式最後用 <code>assert</code> 驗收：FBSS 的三個峰值必須都落在真實方向 2° 以內。</p>
+  </div>
+  <ul class="try">
+    <li>把 L 調到 10：只剩 1 個子陣，前向平滑等於沒做，秩維持 1；FBSS 靠翻轉多出一個等效子陣，也只能恢復到 2。</li>
+    <li>切到「互不相關」：未平滑的共變異數本來就有 3 個大特徵值，MUSIC 不需要平滑就能解出方向。空間平滑是專門治相干的藥。</li>
+    <li>把 L 調小：子陣變多、去相關更徹底，但 MUSIC 的峰變鈍，這是孔徑縮小的代價。</li>
+  </ul>
+  <details><summary>對照程式：平滑、特徵值、MUSIC</summary>
+<pre>Rraw = X*X'/N;                         <span class="c">% 未平滑共變異數 (M×M)</span>
+
+RF = zeros(L,L);
+for p = 1:P
+    Xp = X(p:p+L-1,:);                 <span class="c">% 第 p 個子陣的資料</span>
+    RF = RF + Xp*Xp'/N;
+end
+RF = RF/P;                             <span class="c">% 前向平滑</span>
+J = fliplr(eye(L));
+RFB = 0.5*(RF + J*conj(RF)*J);         <span class="c">% 前後向平滑</span>
+
+<span class="c">% eigdb：特徵值排序後換成相對 dB</span>
+e = sort(real(eig((R+R')/2)),'descend');
+edB = 10*log10(max(e/e(1),1e-12));
+rRaw = sum(eRaw &gt; rankThresholdDB);    <span class="c">% 門檻 -12 dB</span>
+
+<span class="c">% music_spectrum：取第 K+1 個以後的特徵向量當雜訊子空間</span>
+En = V(:,K+1:end);
+denominator = sum(abs(En'*Agrid).^2,1);
+P = 1./max(denominator,eps);</pre></details>
+</section>
+
+<section>
+  <div class="part"><div class="step">程式二 · EXAMPLE 2</div></div>
+  <h2>Frost 波束成形器為什麼會消掉自己的訊號</h2>
+  <p>Frost 演算法解的是一個帶約束的最小化問題：讓輸出功率 w<sup>H</sup>Rw 最小，同時規定 0° 方向的增益固定為 1（w<sup>H</sup>a<sub>0</sub> = 1）。直覺是：目標方向的增益既然鎖住了，把總輸出功率壓到最低，就等於把其他方向的干擾和雜訊壓到最低。每收到一個快照，權重更新一次：</p>
+  <div class="math"><i>w</i> ← <i>F</i> + <i>P</i> ( <i>w</i> − μ <i>x y</i><sup>*</sup> ) ，　<i>F</i> = <i>a</i><sub>0</sub> / (<i>a</i><sub>0</sub><sup>H</sup><i>a</i><sub>0</sub>) ，　<i>P</i> = <i>I</i> − <i>a</i><sub>0</sub><i>a</i><sub>0</sub><sup>H</sup> / (<i>a</i><sub>0</sub><sup>H</sup><i>a</i><sub>0</sub>)</div>
+  <div class="panel">
+    <div class="scroll"><svg class="diagram" viewBox="0 0 620 220" role="img" aria-label="Frost 更新的幾何：梯度步離開約束面，投影後回到約束面">
+      <line x1="60" y1="180" x2="580" y2="60" stroke="var(--ink)" stroke-width="2"/>
+      <text x="430" y="44">約束面　wᴴa₀ = 1</text>
+      <circle cx="96" cy="30" r="3.5" fill="var(--muted)"/><text x="106" y="34">原點</text>
+      <line x1="96" y1="30" x2="124" y2="151" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 4"/>
+      <circle cx="126" cy="165" r="5" fill="var(--accent)"/><text x="100" y="196">F（起點）</text>
+      <circle cx="270" cy="131.5" r="5" fill="var(--ink)"/><text x="246" y="158">w（目前）</text>
+      <line x1="270" y1="131.5" x2="372" y2="42" stroke="var(--s-raw)" stroke-width="2"/>
+      <circle cx="372" cy="42" r="4" fill="var(--s-raw)"/><text x="244" y="76">① 梯度步 −μ x y*</text>
+      <line x1="372" y1="42" x2="386" y2="102" stroke="var(--s-fb)" stroke-width="2" stroke-dasharray="5 4"/>
+      <circle cx="387" cy="104.5" r="5" fill="var(--s-fb)"/><text x="398" y="124">② 投影回約束面 → 新的 w</text>
+    </svg></div>
+    <p class="cap">F 是滿足約束、長度最短的權重，也是初始值。梯度步會讓 w 離開約束面，P 把與 a<sub>0</sub> 平行的分量去掉，再加回 F，就準確落回面上。因為每一步都重新投影，捨入誤差不會累積，程式印出的 constraint residual 在 10⁻¹⁶ 等級。</p>
+  </div>
+  <p>問題出在約束只鎖住「從 0° 進來的那一路」。±30° 進來的是同一個波形的複本，演算法會發現：把 ±30° 的響應調成恰當的振幅與相位，就能拿它們去抵消 0° 那一路，輸出功率更低。它完全照規則做事，結果是想要的訊號被自己的回音消掉，這叫訊號抵消（signal cancellation）。程式用相干場增益量這件事：</p>
+  <div class="math"><i>g</i> = <i>w</i><sup>H</sup> <i>A</i> α ，　輸出 <i>y</i> = <i>g</i> · <i>s</i> + 雜訊</div>
+  <p>|g| = 1 表示訊號原樣通過，|g| → 0 表示訊號被消光。平滑 Frost 的修法是只用一組長度 L 的權重，每個快照依序拿 P 個子陣各更新一次，再把各分支輸出平均。這樣梯度的期望值用到的是平滑後的 R<sub>F</sub>，演算法看到的干擾與訊號相關性下降。去相關越徹底，它越沒辦法借 ±30° 的複本來抵消訊號，只能改成把這兩個方向的響應壓低。</p>
+
+  <div class="panel">
+    <h3>模擬控制</h3>
+    <div class="controls">
+      <div class="ctl"><span>訊源關係</span>
+        <div class="seg" data-seg><button type="button" id="cohC1" data-coh="1">完全相干</button><button type="button" id="cohC0" data-coh="0">互不相關</button></div></div>
+      <label class="ctl" for="L2"><span class="row"><span>子陣長度 L（P = <span id="P2o"></span>）</span><output id="L2o"></output></span>
+        <input type="range" id="L2" min="4" max="10" step="1" value="8"></label>
+      <label class="ctl" for="scr" style="flex:2 1 220px"><span class="row"><span>已處理快照數 n</span><output id="scro"></output></span>
+        <input type="range" id="scr" min="0" max="121" step="1" value="121"></label>
+      <button type="button" class="btn" id="play">播放收斂過程</button>
+    </div>
+  </div>
+
+  <div class="panel" id="gainPanel">
+    <h3>相干場增益 |g| 隨快照數的變化</h3>
+    <div id="chGain"></div>
+    <p class="cap">只畫前 600 個快照，收斂在這段就結束了。直線是目前滑桿位置。傳統 Frost 的 |g| 在幾十個快照內就掉到接近 0。</p>
+  </div>
+  <p class="note" id="gainNote" hidden>訊源互不相關時，三個到達波不再是同一個波形，「相干場增益」沒有物理意義，所以這張圖先收起來。請直接比較下方的波束圖、MSE 與輸出波形。</p>
+
+  <div class="panel">
+    <h3>波束圖（第 <span id="beamN"></span> 個快照時的權重）</h3>
+    <div id="chBeam"></div>
+    <p class="cap">各曲線依程式的畫法正規化到自己的最大值，所以只能比形狀。黑色虛線是用整批資料直接解出的平滑 LCMV 解，當作 LMS 該收斂到的參考答案。</p>
+  </div>
+
+  <div class="panel">
+    <h3>量化比較（n = 8000 的最終權重）</h3>
+    <div class="scroll"><table id="tbFrost"></table></div>
+  </div>
+
+  <div class="panel">
+    <h3>輸出波形與想要的訊號</h3>
+    <div id="chW1"></div>
+    <div id="chW2"></div>
+    <p class="cap">穩態區間（最後 35% 的快照）開頭的 250 點，取實部。上圖是傳統 Frost，下圖是平滑 Frost，黑線都是想要的訊號 s。</p>
+  </div>
+  <ul class="try">
+    <li>按「播放收斂過程」，看傳統 Frost 的 |g| 怎麼掉下去。它的波束圖在 ±30° 始終沒有形成深零點，因為它需要留著這兩路來抵消訊號。</li>
+    <li>預設 L = 8（3 個子陣）去相關不完全：平滑 Frost 的 |g| 停在 0.67 左右，±30° 的響應也只壓到約 −12 dB。原因是每平移一個子陣，0° 與 ±30° 的相對相位轉 90°，+30° 與 −30° 之間轉 180°，3 個子陣平均後還殘留 1/3 的相關性。</li>
+    <li>把 L 調到 7（4 個子陣）：90° 轉四次剛好繞滿一圈，交叉項完全抵消，|g| 回到 1，±30° 出現深零點。這是這組角度配上半波長間距的結果，換一組角度，最合適的 L 也會不同。</li>
+    <li>把 L 調到 10：只有 1 個子陣，平滑 Frost 退化成傳統 Frost，兩條曲線重合。</li>
+    <li>切到「互不相關」：傳統 Frost 不再抵消訊號，輸出波形跟得上想要的訊號。問題的根源是相干，不是 Frost 演算法本身。</li>
+  </ul>
+  <details><summary>對照程式：Frost 與平滑 Frost 的主迴圈</summary>
+<pre>a0M = AM(:,1);                          <span class="c">% 0° 的導向向量</span>
+FM = a0M/(a0M'*a0M);                    <span class="c">% 滿足約束的最小範數權重</span>
+PM = eye(M)-a0M*((a0M'*a0M)\a0M');      <span class="c">% 投影矩陣</span>
+wRaw = FM;
+
+for n = 1:N
+    <span class="c">% 傳統 Frost：整個陣列，每個快照更新一次</span>
+    x = X(:,n);
+    y = wRaw'*x;
+    wRaw = FM + PM*(wRaw-muRaw*x*conj(y));
+    yRaw(n) = wRaw'*x;
+
+    <span class="c">% 平滑 Frost：同一組 wSS 依序看過 P 個子陣</span>
+    branchOut = zeros(Pn,1);
+    for p = 1:Pn
+        xp = X(p:p+L-1,n);
+        yp = wSS'*xp;
+        wSS = FL + PL*(wSS-muSS*xp*conj(yp));
+        branchOut(p) = wSS'*xp;
+    end
+    ySS(n) = mean(branchOut);           <span class="c">% 正前方不需對齊分支相位</span>
+end
+
+gFieldRaw = wRaw'*AM*alpha;             <span class="c">% 相干場增益</span></pre></details>
+</section>
+
+<section>
+  <div class="step">整理</div>
+  <h2>兩個方法各管一件事</h2>
+  <div class="scroll"><table>
+    <tr><th>方法</th><th style="text-align:left">解決什麼</th><th style="text-align:left">沒解決什麼</th></tr>
+    <tr><td>Frost 約束投影</td><td style="text-align:left;font-family:var(--body);white-space:normal">自適應過程中目標方向增益永遠維持為 1</td><td style="text-align:left;font-family:var(--body);white-space:normal">共變異數缺秩。相干干擾仍會抵消訊號</td></tr>
+    <tr><td>Shan-Kailath 空間平滑</td><td style="text-align:left;font-family:var(--body);white-space:normal">把相干資料的共變異數恢復成滿秩</td><td style="text-align:left;font-family:var(--body);white-space:normal">孔徑由 M 縮成 L，解析度下降；只適用等間距線性陣列這類具平移不變結構的陣列</td></tr>
+  </table></div>
+  <p>程式結尾的註解講的就是這件事：約束投影不等於秩恢復，兩者互補。選 L 是工程上的取捨。L 大，孔徑大、解析度高，但子陣少、去相關能力弱；L 小則相反。前向平滑要解 K 個相干訊源，需要子陣數 P ≥ K 且子陣長度 L ≥ K + 1，合起來是 M ≥ 2K 個元件；前後向平滑可以放寬到大約 M ≥ 3K/2。程式的兩個 <code>assert(L &gt;= K)</code>、<code>assert(P &gt;= K)</code> 檢查的就是前向平滑的條件。</p>
+  <p>實際會用到這套方法的場合，共同點是多路徑造成相干到達波：淺海聲納與水下通訊的海面、海底反射，低仰角雷達的海面鏡像，室內或都會區基地台的 DOA 估計，以及混響房間裡的麥克風陣列與助聽器。</p>
+</section>
+
+<footer>依 SCAS SP-03 Example 1、Example 2 兩支 MATLAB 教學程式的流程與參數重新實作（M = 10、d/λ = 0.5、方向 0°/−30°/+30°、α = [1, 2.2e<sup>j0.55</sup>, 1.8e<sup>−j0.90</sup>]）。</footer>
+</div>
+
+<script>
+/* ---------- numerical core: JS re-implementation of the two SCAS SP-03 MATLAB programs ---------- */
+const TWO_PI = 2 * Math.PI, D2R = Math.PI / 180;
+
+function gaussian(seed) { // mulberry32 + Box-Muller
+  let a = seed >>> 0;
+  const u = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  return () => { let x = 0; while (x === 0) x = u(); return Math.sqrt(-2 * Math.log(x)) * Math.cos(TWO_PI * u()); };
+}
+
+// steer = @(m,theta) exp(-1j*2*pi*dLambda*(0:m-1).'*sind(theta))
+function steer(m, thetaDeg, dLambda) {
+  const re = new Float64Array(m), im = new Float64Array(m), k = TWO_PI * dLambda * Math.sin(thetaDeg * D2R);
+  for (let i = 0; i < m; i++) { re[i] = Math.cos(k * i); im[i] = -Math.sin(k * i); }
+  return { re, im };
+}
+
+const ALPHA = [[1, 0], [2.2 * Math.cos(0.55), 2.2 * Math.sin(0.55)], [1.8 * Math.cos(-0.90), 1.8 * Math.sin(-0.90)]];
+
+/* X = A*S + V.  coherent: S = alpha*s0 (rank 1).  otherwise each arrival has its own waveform. */
+function genData(o) {
+  const { M, N, theta, dLambda, coherent, seed } = o, K = theta.length, g = gaussian(seed), r2 = Math.SQRT1_2;
+  const sr = [], si = [];
+  for (let k = 0; k < K; k++) {
+    if (coherent && k > 0) { sr.push(sr[0]); si.push(si[0]); continue; }
+    const a = new Float64Array(N), b = new Float64Array(N);
+    for (let n = 0; n < N; n++) { a[n] = g() * r2; b[n] = g() * r2; }
+    sr.push(a); si.push(b);
+  }
+  const A = theta.map(t => steer(M, t, dLambda));
+  const Xr = [], Xi = [];
+  let pow = 0;
+  for (let m = 0; m < M; m++) {
+    const xr = new Float64Array(N), xi = new Float64Array(N);
+    for (let k = 0; k < K; k++) {
+      // coefficient c = a_m(theta_k) * alpha_k
+      const cr = A[k].re[m] * ALPHA[k][0] - A[k].im[m] * ALPHA[k][1];
+      const ci = A[k].re[m] * ALPHA[k][1] + A[k].im[m] * ALPHA[k][0];
+      const a = sr[k], b = si[k];
+      for (let n = 0; n < N; n++) { xr[n] += cr * a[n] - ci * b[n]; xi[n] += cr * b[n] + ci * a[n]; }
+    }
+    for (let n = 0; n < N; n++) pow += xr[n] * xr[n] + xi[n] * xi[n];
+    Xr.push(xr); Xi.push(xi);
+  }
+  pow /= M * N;
+  const noiseStd = o.noiseStd != null ? o.noiseStd : Math.sqrt(pow / Math.pow(10, o.SNRdB / 10));
+  const s = noiseStd * r2;
+  for (let m = 0; m < M; m++) for (let n = 0; n < N; n++) { Xr[m][n] += s * g(); Xi[m][n] += s * g(); }
+  return { Xr, Xi, sr, si, M, N };
+}
+
+// R = X*X'/N  (Hermitian, stored as re/im row-major)
+function cov(d) {
+  const { Xr, Xi, M, N } = d, re = new Float64Array(M * M), im = new Float64Array(M * M);
+  for (let i = 0; i < M; i++) for (let j = i; j < M; j++) {
+    let a = 0, b = 0; const ar = Xr[i], ai = Xi[i], br = Xr[j], bi = Xi[j];
+    for (let n = 0; n < N; n++) { a += ar[n] * br[n] + ai[n] * bi[n]; b += ai[n] * br[n] - ar[n] * bi[n]; }
+    re[i * M + j] = a / N; im[i * M + j] = b / N; re[j * M + i] = a / N; im[j * M + i] = -b / N;
+  }
+  return { n: M, re, im };
+}
+
+// RF = mean over p of Xp*Xp'/N  ==  mean of the L-by-L diagonal blocks of R
+function smoothF(R, L) {
+  const M = R.n, P = M - L + 1, re = new Float64Array(L * L), im = new Float64Array(L * L);
+  for (let p = 0; p < P; p++) for (let i = 0; i < L; i++) for (let j = 0; j < L; j++) {
+    re[i * L + j] += R.re[(p + i) * M + p + j] / P; im[i * L + j] += R.im[(p + i) * M + p + j] / P;
+  }
+  return { n: L, re, im };
+}
+// RFB = 0.5*(RF + J*conj(RF)*J)
+function smoothFB(RF) {
+  const L = RF.n, re = new Float64Array(L * L), im = new Float64Array(L * L);
+  for (let i = 0; i < L; i++) for (let j = 0; j < L; j++) {
+    const q = (L - 1 - i) * L + (L - 1 - j);
+    re[i * L + j] = 0.5 * (RF.re[i * L + j] + RF.re[q]); im[i * L + j] = 0.5 * (RF.im[i * L + j] - RF.im[q]);
+  }
+  return { n: L, re, im };
+}
+
+/* Hermitian eigen-decomposition through the real symmetric embedding [[A,-B],[B,A]] + cyclic Jacobi.
+   Every eigenvalue appears twice; eigenvectors are returned in the embedding (length 2n). */
+function eigH(R) {
+  const n = R.n, m = 2 * n, S = new Float64Array(m * m), V = new Float64Array(m * m);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const a = 0.5 * (R.re[i * n + j] + R.re[j * n + i]), b = 0.5 * (R.im[i * n + j] - R.im[j * n + i]);
+    S[i * m + j] = a; S[(i + n) * m + j + n] = a; S[i * m + j + n] = -b; S[(i + n) * m + j] = b;
+  }
+  for (let i = 0; i < m; i++) V[i * m + i] = 1;
+  for (let sweep = 0; sweep < 60; sweep++) {
+    let off = 0;
+    for (let p = 0; p < m; p++) for (let q = p + 1; q < m; q++) off += S[p * m + q] * S[p * m + q];
+    if (off < 1e-26) break;
+    for (let p = 0; p < m; p++) for (let q = p + 1; q < m; q++) {
+      const apq = S[p * m + q]; if (Math.abs(apq) < 1e-300) continue;
+      const th = (S[q * m + q] - S[p * m + p]) / (2 * apq);
+      const t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1)), c = 1 / Math.sqrt(t * t + 1), s = t * c;
+      for (let k = 0; k < m; k++) { const a = S[k * m + p], b = S[k * m + q]; S[k * m + p] = c * a - s * b; S[k * m + q] = s * a + c * b; }
+      for (let k = 0; k < m; k++) { const a = S[p * m + k], b = S[q * m + k]; S[p * m + k] = c * a - s * b; S[q * m + k] = s * a + c * b; }
+      for (let k = 0; k < m; k++) { const a = V[k * m + p], b = V[k * m + q]; V[k * m + p] = c * a - s * b; V[k * m + q] = s * a + c * b; }
+    }
+  }
+  const idx = Array.from({ length: m }, (_, i) => i).sort((a, b) => S[b * m + b] - S[a * m + a]);
+  const vals2 = idx.map(i => S[i * m + i]);
+  const vecs = idx.map(i => { const v = new Float64Array(m); for (let k = 0; k < m; k++) v[k] = V[k * m + i]; return v; });
+  const vals = []; for (let i = 0; i < m; i += 2) vals.push(0.5 * (vals2[i] + vals2[i + 1]));
+  return { vals, vecs, n };
+}
+// eigdb: 10*log10(max(e/e(1),1e-12))
+const eigdB = vals => vals.map(e => 10 * Math.log10(Math.max(e / vals[0], 1e-12)));
+
+function range(a, step, b) { const out = []; const cnt = Math.round((b - a) / step); for (let i = 0; i <= cnt; i++) out.push(a + i * step); return out; }
+
+// MUSIC: P(theta) = 1 / ||En' a(theta)||^2, normalised, in dB
+function music(R, K, scan, dLambda) {
+  const E = eigH(R), n = R.n, noise = E.vecs.slice(2 * K), P = new Float64Array(scan.length);
+  let mx = 0;
+  for (let t = 0; t < scan.length; t++) {
+    const a = steer(n, scan[t], dLambda); let den = 0;
+    for (const v of noise) { let d = 0; for (let i = 0; i < n; i++) d += v[i] * a.re[i] + v[i + n] * a.im[i]; den += d * d; }
+    P[t] = 1 / Math.max(den, 2.2e-16); if (P[t] > mx) mx = P[t];
+  }
+  return Array.from(P, p => 10 * Math.log10(p / mx));
+}
+
+function separatedPeaks(scan, PdB, count, minSep) {
+  const cand = [];
+  for (let i = 1; i < PdB.length - 1; i++) if (PdB[i] > PdB[i - 1] && PdB[i] >= PdB[i + 1]) cand.push(i);
+  cand.sort((a, b) => PdB[b] - PdB[a]);
+  const chosen = [];
+  for (const i of cand) {
+    if (chosen.every(j => Math.abs(scan[i] - scan[j]) >= minSep)) chosen.push(i);
+    if (chosen.length === count) break;
+  }
+  return chosen.map(i => scan[i]).sort((a, b) => a - b);
+}
+
+function example1(o) {
+  const { M, L, K, dLambda } = o, d = genData(o), Rraw = cov(d), RF = smoothF(Rraw, L), RFB = smoothFB(RF);
+  const scan = range(-70, 0.05, 70), thr = -12, out = { scan, thr, P: M - L + 1 };
+  for (const [key, R] of [['raw', Rraw], ['f', RF], ['fb', RFB]]) {
+    const e = eigdB(eigH(R).vals), sp = music(R, K, scan, dLambda);
+    out[key] = { eig: e, rank: e.filter(v => v > thr).length, spec: sp, doa: separatedPeaks(scan, sp, K, 5) };
+  }
+  return out;
+}
+
+/* ---------- Example 2: Frost constrained LMS, full array vs. spatially smoothed ---------- */
+function solveLoaded(R, a, loadRel) { // (R + dl*I) \ a, then scale so that a'*w = 1
+  const n = R.n, m = 2 * n; let tr = 0; for (let i = 0; i < n; i++) tr += R.re[i * n + i];
+  const dl = loadRel * tr / n, A = [];
+  for (let i = 0; i < m; i++) A.push(new Float64Array(m + 1));
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const re = R.re[i * n + j] + (i === j ? dl : 0), im = R.im[i * n + j];
+    A[i][j] = re; A[i + n][j + n] = re; A[i][j + n] = -im; A[i + n][j] = im;
+  }
+  for (let i = 0; i < n; i++) { A[i][m] = a.re[i]; A[i + n][m] = a.im[i]; }
+  for (let c = 0; c < m; c++) {
+    let p = c; for (let r = c + 1; r < m; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+    [A[c], A[p]] = [A[p], A[c]];
+    for (let r = 0; r < m; r++) if (r !== c) { const f = A[r][c] / A[c][c]; if (f) for (let k = c; k <= m; k++) A[r][k] -= f * A[c][k]; }
+  }
+  const re = new Float64Array(n), im = new Float64Array(n);
+  for (let i = 0; i < n; i++) { re[i] = A[i][m] / A[i][i]; im[i] = A[i + n][m] / A[i + n][i + n]; }
+  let dr = 0, di = 0; // a' * w
+  for (let i = 0; i < n; i++) { dr += a.re[i] * re[i] + a.im[i] * im[i]; di += a.re[i] * im[i] - a.im[i] * re[i]; }
+  const q = dr * dr + di * di;
+  for (let i = 0; i < n; i++) { const x = re[i], y = im[i]; re[i] = (x * dr + y * di) / q; im[i] = (y * dr - x * di) / q; }
+  return { re, im };
+}
+
+// |w' * a(theta)| over a scan grid, normalised to its own maximum, in dB (floor -80 dB)
+function beamPattern(w, scan, dLambda) {
+  const n = w.re.length, B = new Float64Array(scan.length); let mx = 0;
+  for (let t = 0; t < scan.length; t++) {
+    const a = steer(n, scan[t], dLambda); let r = 0, i = 0;
+    for (let k = 0; k < n; k++) { r += w.re[k] * a.re[k] + w.im[k] * a.im[k]; i += w.re[k] * a.im[k] - w.im[k] * a.re[k]; }
+    B[t] = Math.hypot(r, i); if (B[t] > mx) mx = B[t];
+  }
+  return Array.from(B, b => 20 * Math.log10(Math.max(b / mx, 1e-4)));
+}
+function respAbs(w, a) { let r = 0, i = 0; for (let k = 0; k < w.re.length; k++) { r += w.re[k] * a.re[k] + w.im[k] * a.im[k]; i += w.re[k] * a.im[k] - w.im[k] * a.re[k]; } return Math.hypot(r, i); }
+
+function example2(o) {
+  const { M, L, N, theta, dLambda, muRaw, muSS, snapEvery, snapUntil } = o, K = theta.length, Pn = M - L + 1;
+  const d = genData(o), { Xr, Xi } = d;
+  const a0M = steer(M, theta[0], dLambda), a0L = steer(L, theta[0], dLambda);
+  // one Frost update: w = F + P*(w - mu*x*conj(y)), with F = a0/(a0'a0), P = I - a0*a0'/(a0'a0)
+  const xr = new Float64Array(M), xi = new Float64Array(M);
+  function step(w, a0, mu, off, len) {
+    let yr = 0, yi = 0;
+    for (let k = 0; k < len; k++) { yr += w.re[k] * xr[off + k] + w.im[k] * xi[off + k]; yi += w.re[k] * xi[off + k] - w.im[k] * xr[off + k]; }
+    let cr = 0, ci = 0; // a0' * v
+    for (let k = 0; k < len; k++) {
+      const vr = w.re[k] - mu * (xr[off + k] * yr + xi[off + k] * yi), vi = w.im[k] - mu * (xi[off + k] * yr - xr[off + k] * yi);
+      w.re[k] = vr; w.im[k] = vi; cr += a0.re[k] * vr + a0.im[k] * vi; ci += a0.re[k] * vi - a0.im[k] * vr;
+    }
+    cr = (1 - cr) / len; ci = -ci / len; // F + P*v = v + a0*(1 - a0'v)/len
+    let or = 0, oi = 0;
+    for (let k = 0; k < len; k++) {
+      w.re[k] += a0.re[k] * cr - a0.im[k] * ci; w.im[k] += a0.re[k] * ci + a0.im[k] * cr;
+      or += w.re[k] * xr[off + k] + w.im[k] * xi[off + k]; oi += w.re[k] * xi[off + k] - w.im[k] * xr[off + k];
+    }
+    return [or, oi];
+  }
+  const init = (a0, n) => ({ re: Float64Array.from(a0.re, v => v / n), im: Float64Array.from(a0.im, v => v / n) });
+  const wRaw = init(a0M, M), wSS = init(a0L, L);
+  // coherent field seen by the full array, and by each sub-array
+  const AM = theta.map(t => steer(M, t, dLambda)), AL = theta.map(t => steer(L, t, dLambda));
+  const fieldVec = (A, n, p) => { const re = new Float64Array(n), im = new Float64Array(n);
+    for (let k = 0; k < K; k++) { const ph = -TWO_PI * dLambda * p * Math.sin(theta[k] * D2R);
+      const cr = ALPHA[k][0] * Math.cos(ph) - ALPHA[k][1] * Math.sin(ph), ci = ALPHA[k][0] * Math.sin(ph) + ALPHA[k][1] * Math.cos(ph);
+      for (let i = 0; i < n; i++) { re[i] += A[k].re[i] * cr - A[k].im[i] * ci; im[i] += A[k].re[i] * ci + A[k].im[i] * cr; } }
+    return { re, im }; };
+  const fM = fieldVec(AM, M, 0), fL = []; for (let p = 0; p < Pn; p++) fL.push(fieldVec(AL, L, p));
+  const gain = () => { // |w'*A*alpha| ; smoothed: mean over branches (complex)
+    let r = 0, i = 0;
+    for (let k = 0; k < M; k++) { r += wRaw.re[k] * fM.re[k] + wRaw.im[k] * fM.im[k]; i += wRaw.re[k] * fM.im[k] - wRaw.im[k] * fM.re[k]; }
+    let sr = 0, si = 0;
+    for (const f of fL) for (let k = 0; k < L; k++) { sr += wSS.re[k] * f.re[k] + wSS.im[k] * f.im[k]; si += wSS.re[k] * f.im[k] - wSS.im[k] * f.re[k]; }
+    return [Math.hypot(r, i), Math.hypot(sr, si) / Pn];
+  };
+  const yRaw = new Float64Array(N), ySS = new Float64Array(N), snaps = [];
+  const snap = n => { const g = gain(); snaps.push({ n, wRaw: { re: wRaw.re.slice(), im: wRaw.im.slice() }, wSS: { re: wSS.re.slice(), im: wSS.im.slice() }, gRaw: g[0], gSS: g[1] }); };
+  snap(0);
+  const steady0 = Math.floor(0.65 * N) - 1; let mseRaw = 0, mseSS = 0, cnt = 0;
+  for (let n = 0; n < N; n++) {
+    for (let m = 0; m < M; m++) { xr[m] = Xr[m][n]; xi[m] = Xi[m][n]; }
+    const y = step(wRaw, a0M, muRaw, 0, M); yRaw[n] = y[0];
+    let br = 0, bi = 0;
+    for (let p = 0; p < Pn; p++) { const b = step(wSS, a0L, muSS, p, L); br += b[0]; bi += b[1]; }
+    br /= Pn; bi /= Pn; ySS[n] = br;
+    if (n >= steady0) { const dr = d.sr[0][n], di = d.si[0][n]; mseRaw += (y[0] - dr) ** 2 + (y[1] - di) ** 2; mseSS += (br - dr) ** 2 + (bi - di) ** 2; cnt++; }
+    if (((n + 1) % snapEvery === 0 && n + 1 <= snapUntil) || n + 1 === N) snap(n + 1);
+  }
+  const Rraw = cov(d), RF = smoothF(Rraw, L);
+  const wBatchRaw = solveLoaded(Rraw, a0M, 1e-4), wBatchSS = solveLoaded(RF, a0L, 1e-4);
+  const dist = (a, b) => { let s = 0; for (let k = 0; k < a.re.length; k++) s += (a.re[k] - b.re[k]) ** 2 + (a.im[k] - b.im[k]) ** 2; return Math.sqrt(s); };
+  const dB = v => 20 * Math.log10(Math.max(v, 1e-8));
+  return { snaps, yRaw, ySS, s: d.sr[0], steady0, Pn, wBatchSS, wBatchRaw,
+    mseRaw: mseRaw / cnt, mseSS: mseSS / cnt,
+    conRaw: Math.abs(respAbs(wRaw, a0M) - 1), conSS: Math.abs(respAbs(wSS, a0L) - 1),
+    nullRaw: [dB(respAbs(wRaw, AM[1])), dB(respAbs(wRaw, AM[2]))], nullSS: [dB(respAbs(wSS, AL[1])), dB(respAbs(wSS, AL[2]))],
+    distRaw: dist(wRaw, wBatchRaw), distSS: dist(wSS, wBatchSS) };
+}
+
+if (typeof module !== 'undefined') module.exports = { example1, example2, steer, range, beamPattern };
+
+</script>
+<script>
+/* ---------- UI ---------- */
+const $ = id => document.getElementById(id);
+const DEF = { M: 10, K: 3, dLambda: 0.5, theta: [0, -30, 30], seed: 20260921 };
+const state = { coherent: true, L1: 8, snr: 15, seed1: DEF.seed, L2: 8, snap: 121 };
+const fmt = (v, d = 2) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
+
+/* ---- small SVG line chart with legend + hover readout ---- */
+const charts = [];
+class Chart {
+  constructor(host) { this.host = host; host.classList.add('chart'); charts.push(this);
+    host.addEventListener('pointermove', e => this.hover(e)); host.addEventListener('pointerleave', () => this.unhover()); }
+  set(cfg) { this.cfg = cfg; this.draw(); }
+  draw() {
+    const c = this.cfg; if (!c) return;
+    const W = Math.max(280, this.host.clientWidth || 600), H = c.h || Math.round(Math.min(330, Math.max(220, W * 0.46)));
+    const m = { l: 46, r: 12, t: c.vlines ? 20 : 10, b: 40 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+    const X = v => m.l + (v - c.x[0]) / (c.x[1] - c.x[0]) * pw, Y = v => m.t + (1 - (v - c.y[0]) / (c.y[1] - c.y[0])) * ph;
+    this.geo = { m, pw, ph, W, H, X };
+    const id = 'cp' + charts.indexOf(this);
+    let s = '<div class="legend">' + c.series.map(q => `<span><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" class="c-${q.c}" stroke-width="${q.w || 2}"${q.dash ? ' stroke-dasharray="5 3"' : ''}/></svg>${q.name}</span>`).join('') + '</div>';
+    s += `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${c.title}"><defs><clipPath id="${id}"><rect x="${m.l}" y="${m.t}" width="${pw}" height="${ph}"/></clipPath></defs>`;
+    for (const t of c.yTicks) s += `<line class="grid" x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}"/><text x="${m.l - 6}" y="${Y(t) + 4}" text-anchor="end">${String(t).replace('-', '−')}</text>`;
+    const skip = pw / c.xTicks.length < 36 ? 2 : 1;
+    c.xTicks.forEach((t, i) => { if (i % skip === 0) s += `<line class="axis" x1="${X(t)}" x2="${X(t)}" y1="${m.t + ph}" y2="${m.t + ph + 4}"/><text x="${X(t)}" y="${m.t + ph + 16}" text-anchor="middle">${String(t).replace('-', '−')}</text>`; });
+    s += `<line class="axis" x1="${m.l}" x2="${W - m.r}" y1="${m.t + ph}" y2="${m.t + ph}"/>`;
+    s += `<text class="lab" x="${m.l + pw / 2}" y="${H - 4}" text-anchor="middle">${c.xLabel}</text>`;
+    s += `<text class="lab" transform="translate(12 ${m.t + ph / 2}) rotate(-90)" text-anchor="middle">${c.yLabel}</text>`;
+    for (const v of c.vlines || []) s += `<line class="ref" x1="${X(v.x)}" x2="${X(v.x)}" y1="${m.t}" y2="${m.t + ph}"/><text class="lab" x="${X(v.x)}" y="${m.t - 6}" text-anchor="middle">${v.label}</text>`;
+    for (const h of c.hlines || []) s += `<line class="thr" x1="${m.l}" x2="${W - m.r}" y1="${Y(h.y)}" y2="${Y(h.y)}"/><text class="lab" x="${W - m.r - 4}" y="${Y(h.y) - 5}" text-anchor="end">${h.label}</text>`;
+    s += `<g clip-path="url(#${id})">`;
+    const lo = c.y[0] - (c.y[1] - c.y[0]) * 0.2;
+    for (const q of c.series) {
+      let d = ''; for (let i = 0; i < q.xs.length; i++) d += (i ? 'L' : 'M') + X(q.xs[i]).toFixed(1) + ' ' + Y(Math.max(q.ys[i], lo)).toFixed(1);
+      s += `<path d="${d}" class="c-${q.c}" style="fill:none" stroke-width="${q.w || 2}" stroke-linejoin="round"${q.dash ? ' stroke-dasharray="6 4"' : ''}/>`;
+      if (q.markers) for (let i = 0; i < q.xs.length; i++) s += `<circle cx="${X(q.xs[i])}" cy="${Y(q.ys[i])}" r="4" class="c-${q.c}" stroke="var(--surface)" stroke-width="2" style="stroke:var(--surface)"/>`;
+    }
+    if (c.cursor != null && c.cursor <= c.x[1]) s += `<line class="cur" x1="${X(c.cursor)}" x2="${X(c.cursor)}" y1="${m.t}" y2="${m.t + ph}"/>`;
+    s += `</g><line class="cross" hidden y1="${m.t}" y2="${m.t + ph}"/></svg><div class="tip" hidden></div>`;
+    this.host.innerHTML = s;
+  }
+  hover(e) {
+    const c = this.cfg, g = this.geo, svg = this.host.querySelector(':scope > svg'); if (!c || !svg) return;
+    const r = svg.getBoundingClientRect(), px = e.clientX - r.left;
+    if (px < g.m.l || px > g.m.l + g.pw) return this.unhover();
+    let xv = c.x[0] + (px - g.m.l) / g.pw * (c.x[1] - c.x[0]), snapX = null, rows = '';
+    for (const q of c.series) {
+      let a = 0, b = q.xs.length - 1;
+      while (b - a > 1) { const mid = (a + b) >> 1; if (q.xs[mid] < xv) a = mid; else b = mid; }
+      const i = Math.abs(q.xs[a] - xv) <= Math.abs(q.xs[b] - xv) ? a : b;
+      if (snapX == null) snapX = q.xs[i];
+      if (Math.abs(q.xs[i] - snapX) > (c.x[1] - c.x[0]) * 0.02) continue;
+      rows += `<div><span class="sw b-${q.c}"></span>${q.name}　${fmt(q.ys[i], c.yDigits ?? 1)}</div>`;
+    }
+    const tip = this.host.querySelector('.tip'), cross = svg.querySelector('.cross'), cx = g.X(snapX);
+    cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.hidden = false; cross.removeAttribute('hidden');
+    tip.innerHTML = `<b>${c.xName} ${fmt(snapX, c.xDigits ?? 0)}</b>` + rows; tip.hidden = false;
+    const tw = tip.offsetWidth; tip.style.left = Math.max(0, cx + 12 + tw > g.W ? cx - 12 - tw : cx + 12) + 'px';
+    tip.style.top = (svg.offsetTop + g.m.t + g.ph - tip.offsetHeight - 6) + 'px';
+  }
+  unhover() { const t = this.host.querySelector('.tip'), x = this.host.querySelector('.cross'); if (t) t.hidden = true; if (x) x.setAttribute('hidden', ''); }
+}
+
+/* ---- basics 1: array + phasor dials ---- */
+function drawArray() {
+  const th = +$('th0').value, t = th * D2R, ux = Math.sin(t), uy = -Math.cos(t), cx = 360, cy = 150;
+  let s = '<defs><clipPath id="wclip"><rect x="20" y="8" width="680" height="136"/></clipPath></defs><g clip-path="url(#wclip)">';
+  for (let k = -8; k <= 8; k++) { const px = cx + ux * k * 120, py = cy + uy * k * 120;
+    s += `<line x1="${px - 900 * Math.cos(t)}" y1="${py - 900 * Math.sin(t)}" x2="${px + 900 * Math.cos(t)}" y2="${py + 900 * Math.sin(t)}" stroke="var(--s-f)" stroke-width="2" opacity=".55"/>`; }
+  s += `</g><line x1="${cx}" y1="${cy}" x2="${cx}" y2="14" stroke="var(--muted)" stroke-dasharray="4 4"/>`;
+  s += `<line x1="${cx + ux * 132}" y1="${cy + uy * 132}" x2="${cx + ux * 30}" y2="${cy + uy * 30}" stroke="var(--ink)" stroke-width="2"/>`;
+  const ax = cx + ux * 30, ay = cy + uy * 30, bx = -uy, by = ux;
+  s += `<polygon points="${ax - ux * 2},${ay - uy * 2} ${ax + ux * 12 + bx * 5},${ay + uy * 12 + by * 5} ${ax + ux * 12 - bx * 5},${ay + uy * 12 - by * 5}" fill="var(--ink)"/>`;
+  s += `<text x="${cx + (th >= 0 ? -8 : 8)}" y="26" text-anchor="${th >= 0 ? 'end' : 'start'}">正前方</text><text x="${cx + ux * 140 + (th >= 0 ? 8 : -8)}" y="${Math.max(24, cy + uy * 140) + 18}" text-anchor="${th >= 0 ? 'start' : 'end'}" class="mono">θ = ${fmt(th, 0)}°</text>`;
+  s += `<line x1="60" y1="${cy}" x2="660" y2="${cy}" stroke="var(--line)" stroke-width="2"/>`;
+  const dphi = -TWO_PI * DEF.dLambda * Math.sin(t);
+  for (let m = 0; m < 10; m++) { const x = 90 + 60 * m, ph = dphi * m;
+    s += `<circle cx="${x}" cy="${cy}" r="7" fill="var(--ink)"/>`;
+    s += `<circle cx="${x}" cy="222" r="19" fill="var(--surface)" stroke="var(--line)" stroke-width="2"/><line x1="${x}" y1="222" x2="${x + 17 * Math.cos(ph)}" y2="${222 - 17 * Math.sin(ph)}" stroke="var(--s-fb)" stroke-width="3" stroke-linecap="round"/><circle cx="${x}" cy="222" r="2.5" fill="var(--ink)"/>`;
+    s += `<text x="${x}" y="266" text-anchor="middle" class="mono">${m + 1}</text>`; }
+  s += `<text x="360" y="290" text-anchor="middle">元件編號（間距 d = λ/2）</text>`;
+  $('arr').innerHTML = s;
+  $('th0o').textContent = fmt(th, 0) + '°';
+  $('dphi').textContent = `−2π · 0.5 · sin(${fmt(th, 0)}°) = ${fmt(dphi / D2R, 1)}°`;
+}
+
+/* ---- basics 2: three arrivals ---- */
+const chArr = new Chart($('chArr'));
+function drawArrivals() {
+  const g = gaussian(7), n = 60, xs = range(1, 1, n), base = [];
+  for (let k = 0; k < 3; k++) { const r = [], i = []; for (let j = 0; j < n; j++) { r.push(g() * Math.SQRT1_2); i.push(g() * Math.SQRT1_2); } base.push([r, i]); }
+  const mk = k => { const [r, i] = base[state.coherent ? 0 : k]; return r.map((v, j) => ALPHA[k][0] * v - ALPHA[k][1] * i[j]); };
+  chArr.set({ title: '三個到達波的實部', x: [1, n], y: [-5, 5], xTicks: [1, 10, 20, 30, 40, 50, 60], yTicks: [-4, -2, 0, 2, 4], xLabel: '快照', yLabel: '實部振幅', xName: '快照', h: 230,
+    series: [{ name: '0°（想要的訊號）', c: 'ink', xs, ys: mk(0) }, { name: '−30°（干擾 1）', c: 'f', xs, ys: mk(1) }, { name: '+30°（干擾 2）', c: 'fb', xs, ys: mk(2) }] });
+}
+
+/* ---- example 1 ---- */
+const chEig = new Chart($('chEig')), chMusic = new Chart($('chMusic'));
+function runEx1() {
+  const L = state.L1, P = DEF.M - L + 1;
+  $('L1o').textContent = L; $('snro').textContent = state.snr + ' dB';
+  let h = ''; for (let i = 1; i <= 10; i++) h += `<div class="el">${i}</div>`;
+  for (let p = 1; p <= P; p++) h += `<div class="bar" style="grid-column:${p} / span ${L}">子陣 ${p}</div>`;
+  $('sub1').innerHTML = h;
+  const ok = P >= DEF.K;
+  $('st1').innerHTML = `M = 10，L = ${L}，P = M − L + 1 = ${P}　` + (ok ? `<span class="ok">✓ P ≥ K，前向平滑足以分開 3 個相干訊源</span>` : `<span class="ng">✗ P &lt; K，程式的 assert(P &gt;= K) 會在這裡停下</span>`);
+  const r = example1({ M: DEF.M, L, K: DEF.K, N: 2000, dLambda: DEF.dLambda, theta: DEF.theta, SNRdB: state.snr, coherent: state.coherent, seed: state.seed1 });
+  const names = { raw: '未平滑 Raw（M = 10）', f: `前向平滑 FSS（L = ${L}）`, fb: `前後向平滑 FBSS（L = ${L}）` }, cls = { raw: 'raw', f: 'f', fb: 'fb' };
+  $('tiles1').innerHTML = ['raw', 'f', 'fb'].map(k => `<div class="tile"><div class="k"><span class="sw b-${cls[k]}"></span>${names[k].split('（')[0]}</div><div class="v">${r[k].rank}</div><div class="s ${r[k].rank === DEF.K ? 'ok' : 'ng'}">${r[k].rank === DEF.K ? '✓ 秩 = K' : '✗ 秩不足，應為 3'}</div></div>`).join('');
+  chEig.set({ title: '特徵值分布', x: [0.5, 10.5], y: [-45, 2], xTicks: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], yTicks: [-40, -30, -20, -10, 0], xLabel: '特徵值序號（由大到小）', yLabel: '相對特徵值 (dB)', xName: '第', xDigits: 0,
+    hlines: [{ y: r.thr, label: '秩門檻 −12 dB' }],
+    series: ['raw', 'f', 'fb'].map(k => ({ name: names[k], c: cls[k], xs: r[k].eig.map((_, i) => i + 1), ys: r[k].eig, markers: true })) });
+  chMusic.set({ title: 'MUSIC 空間頻譜', x: [-70, 70], y: [-45, 1], xTicks: [-60, -45, -30, -15, 0, 15, 30, 45, 60], yTicks: [-40, -30, -20, -10, 0], xLabel: '角度 (°)', yLabel: '正規化 MUSIC 頻譜 (dB)', xName: 'θ', xDigits: 2,
+    vlines: DEF.theta.map(x => ({ x, label: fmt(x, 0) + '°' })),
+    series: ['raw', 'f', 'fb'].map(k => ({ name: names[k].split('（')[0], c: cls[k], xs: r.scan, ys: r[k].spec, w: k === 'raw' ? 1.5 : 2 })) });
+  const truth = [-30, 0, 30], row = (name, c, d) => { const err = Math.max(...d.map((v, i) => Math.abs(v - truth[i])));
+    return `<tr><td><span class="sw b-${c}"></span>${name}</td>${d.map(v => `<td>${fmt(v, 2)}°</td>`).join('')}<td class="${err < 2 ? 'ok' : 'ng'}">${err < 2 ? '✓' : '✗'} ${err.toFixed(2)}°</td></tr>`; };
+  $('tbDoa').innerHTML = `<tr><th>峰值位置</th><th>峰 1</th><th>峰 2</th><th>峰 3</th><th>最大誤差</th></tr><tr><td>真實方向</td><td>−30.00°</td><td>0.00°</td><td>30.00°</td><td></td></tr>` +
+    row('未平滑 Raw', 'raw', r.raw.doa) + row('前向平滑 FSS', 'f', r.f.doa) + row('前後向平滑 FBSS', 'fb', r.fb.doa);
+}
+
+/* ---- example 2 ---- */
+const chGain = new Chart($('chGain')), chBeam = new Chart($('chBeam')), chW1 = new Chart($('chW1')), chW2 = new Chart($('chW2'));
+const scan2 = range(-80, 0.1, 80);
+let ex2 = null, batchBeam = null, timer = null;
+function runEx2() {
+  const L = state.L2;
+  $('L2o').textContent = L; $('P2o').textContent = DEF.M - L + 1;
+  ex2 = example2({ M: DEF.M, L, N: 8000, dLambda: DEF.dLambda, theta: DEF.theta, noiseStd: 0.2, muRaw: 0.0015, muSS: 0.001, coherent: state.coherent, seed: DEF.seed, snapEvery: 5, snapUntil: 600 });
+  batchBeam = beamPattern(ex2.wBatchSS, scan2, DEF.dLambda);
+  const last = ex2.snaps[ex2.snaps.length - 1], coh = state.coherent;
+  $('gainPanel').hidden = !coh; $('gainNote').hidden = coh;
+  const sci = v => v.toExponential(1).replace('e-', '×10⁻').replace(/⁻(\d+)/, (_, d) => '⁻' + [...d].map(x => '⁰¹²³⁴⁵⁶⁷⁸⁹'[x]).join(''));
+  $('tbFrost').innerHTML = `<tr><th>指標</th><th><span class="sw b-raw"></span>傳統 Frost</th><th><span class="sw b-fb"></span>平滑 Frost</th></tr>` +
+    (coh ? `<tr><td>相干場增益 |g|（1 = 訊號完整通過）</td><td>${last.gRaw.toFixed(3)}</td><td>${last.gSS.toFixed(3)}</td></tr>` : '') +
+    `<tr><td>穩態波形 MSE（訊號功率 = 1）</td><td>${ex2.mseRaw.toFixed(4)}</td><td>${ex2.mseSS.toFixed(4)}</td></tr>` +
+    `<tr><td>−30° 方向響應</td><td>${fmt(ex2.nullRaw[0], 1)} dB</td><td>${fmt(ex2.nullSS[0], 1)} dB</td></tr>` +
+    `<tr><td>+30° 方向響應</td><td>${fmt(ex2.nullRaw[1], 1)} dB</td><td>${fmt(ex2.nullSS[1], 1)} dB</td></tr>` +
+    `<tr><td>約束殘差 |wᴴa₀ − 1|</td><td>${ex2.conRaw < 1e-15 ? '&lt; 10⁻¹⁵' : sci(ex2.conRaw)}</td><td>${ex2.conSS < 1e-15 ? '&lt; 10⁻¹⁵' : sci(ex2.conSS)}</td></tr>` +
+    `<tr><td>與整批解的權重距離</td><td>${ex2.distRaw.toFixed(4)}</td><td>${ex2.distSS.toFixed(4)}</td></tr>`;
+  const i0 = ex2.steady0, xs = range(i0 + 1, 1, i0 + 250), sl = a => Array.from(a.slice(i0, i0 + 250));
+  const wcfg = (title, name, c, ys) => ({ title, x: [i0 + 1, i0 + 250], y: [-2.5, 2.5], xTicks: [5200, 5250, 5300, 5350, 5400], yTicks: [-2, -1, 0, 1, 2], xLabel: '快照', yLabel: '實部振幅', xName: 'n', yDigits: 2, h: 200,
+    series: [{ name: '想要的訊號 s', c: 'ink', xs, ys: sl(ex2.s), w: 1.5 }, { name, c, xs, ys }] });
+  chW1.set(wcfg('傳統 Frost 輸出波形', '傳統 Frost 輸出', 'raw', sl(ex2.yRaw)));
+  chW2.set(wcfg('平滑 Frost 輸出波形', '平滑 Frost 輸出', 'fb', sl(ex2.ySS)));
+  drawSnap();
+}
+function drawSnap() {
+  const sn = ex2.snaps[state.snap], zoom = ex2.snaps.slice(0, -1);
+  $('scro').textContent = sn.n; $('beamN').textContent = sn.n; $('scr').value = state.snap;
+  if (state.coherent) chGain.set({ title: '相干場增益', x: [0, 600], y: [0, 1.2], xTicks: [0, 100, 200, 300, 400, 500, 600], yTicks: [0, 0.2, 0.4, 0.6, 0.8, 1], xLabel: '已處理快照數 n', yLabel: '|g|', xName: 'n', yDigits: 3, cursor: sn.n,
+    series: [{ name: '傳統 Frost', c: 'raw', xs: zoom.map(q => q.n), ys: zoom.map(q => q.gRaw) }, { name: '平滑 Frost', c: 'fb', xs: zoom.map(q => q.n), ys: zoom.map(q => q.gSS) }] });
+  chBeam.set({ title: '波束圖', x: [-80, 80], y: [-70, 3], xTicks: [-75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75], yTicks: [-60, -40, -20, 0], xLabel: '角度 (°)', yLabel: '正規化響應 (dB)', xName: 'θ', xDigits: 1,
+    vlines: DEF.theta.map(x => ({ x, label: fmt(x, 0) + '°' })),
+    series: [{ name: '傳統 Frost', c: 'raw', xs: scan2, ys: beamPattern(sn.wRaw, scan2, DEF.dLambda), w: 1.5 }, { name: '平滑 Frost', c: 'fb', xs: scan2, ys: beamPattern(sn.wSS, scan2, DEF.dLambda) }, { name: '整批平滑 LCMV（參考）', c: 'ink', xs: scan2, ys: batchBeam, w: 1.2, dash: true }] });
+}
+function stop() { if (timer) { clearInterval(timer); timer = null; $('play').textContent = '播放收斂過程'; } }
+
+/* ---- wiring ---- */
+function syncCoh() { document.querySelectorAll('[data-coh]').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.coh === '1') === state.coherent))); }
+document.querySelectorAll('[data-coh]').forEach(b => b.addEventListener('click', () => { state.coherent = b.dataset.coh === '1'; stop(); syncCoh(); drawArrivals(); runEx1(); runEx2(); }));
+$('th0').addEventListener('input', drawArray);
+$('L1').addEventListener('input', e => { state.L1 = +e.target.value; runEx1(); });
+$('snr').addEventListener('input', e => { state.snr = +e.target.value; runEx1(); });
+$('reseed1').addEventListener('click', () => { state.seed1 = (state.seed1 * 1664525 + 1013904223) >>> 0; runEx1(); });
+$('reset1').addEventListener('click', () => { state.L1 = 8; state.snr = 15; state.seed1 = DEF.seed; state.coherent = true; $('L1').value = 8; $('snr').value = 15; syncCoh(); drawArrivals(); runEx1(); runEx2(); });
+$('L2').addEventListener('input', e => { state.L2 = +e.target.value; stop(); runEx2(); });
+$('scr').addEventListener('input', e => { state.snap = +e.target.value; stop(); drawSnap(); });
+$('play').addEventListener('click', () => {
+  if (timer) return stop();
+  state.snap = 0; drawSnap(); $('play').textContent = '暫停';
+  timer = setInterval(() => { state.snap++; if (state.snap >= ex2.snaps.length - 1) { state.snap = ex2.snaps.length - 1; drawSnap(); stop(); } else drawSnap(); }, 70);
+});
+let rz = null;
+new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(() => charts.forEach(c => c.draw()), 80); }).observe(document.querySelector('.wrap'));
+
+syncCoh(); drawArray(); drawArrivals(); runEx1(); runEx2();
+
+</script>
+
+</body>
+</html>
