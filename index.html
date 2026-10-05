@@ -33,6 +33,16 @@ img{max-width:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.8}
 .wrap{max-width:860px;margin:0 auto;padding-inline:20px;padding-block:40px 80px;display:flex;flex-direction:column;gap:56px}
 header .eyebrow{font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;color:var(--accent);text-transform:uppercase}
+.cover{border-top:2px solid var(--ink);border-bottom:1px solid var(--line);padding-block:22px 30px;display:flex;flex-direction:column;gap:20px}
+.cover h1{margin:0;font-size:clamp(34px,7vw,54px)}
+.cover-art{display:block;width:100%;max-width:600px;height:auto}
+.credits{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 20px;font-size:18px}
+.credits dt{color:var(--muted);font-size:14px;align-self:center;white-space:nowrap}
+.credits dd{margin:0;font-weight:500}
+.refs{display:flex;flex-direction:column;gap:8px}
+.refs h2{font-family:var(--body);font-size:14px;font-weight:400;color:var(--muted);line-height:1.8}
+.refs ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.65;color:var(--ink2);max-width:52em}
+.refs cite{font-style:italic}
 h1{font-family:var(--display);font-size:clamp(30px,6vw,44px);line-height:1.2;margin:8px 0 14px;text-wrap:balance}
 h2{font-family:var(--display);font-size:clamp(22px,4vw,27px);line-height:1.35;margin:0;text-wrap:balance}
 h3{font-size:17px;font-weight:700;margin:0}
@@ -118,11 +128,33 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);paddin
 <body>
 
 <div class="wrap">
-<header>
+<header class="cover">
   <div class="eyebrow">SCAS SP-03 · 陣列訊號處理</div>
+  <svg class="cover-art" viewBox="0 0 600 70" role="img" aria-label="平面波斜向入射十元件線性陣列">
+    <defs><clipPath id="cvclip"><rect x="0" y="0" width="600" height="50"/></clipPath></defs>
+    <g clip-path="url(#cvclip)" stroke="var(--accent)" stroke-width="1.5" opacity=".55">
+      <line x1="-60" y1="-10" x2="80" y2="70"/><line x1="40" y1="-10" x2="180" y2="70"/><line x1="140" y1="-10" x2="280" y2="70"/><line x1="240" y1="-10" x2="380" y2="70"/><line x1="340" y1="-10" x2="480" y2="70"/><line x1="440" y1="-10" x2="580" y2="70"/><line x1="540" y1="-10" x2="680" y2="70"/>
+    </g>
+    <line x1="0" y1="58" x2="600" y2="58" stroke="var(--line)" stroke-width="2"/>
+    <g fill="var(--ink)"><circle cx="30" cy="58" r="6"/><circle cx="90" cy="58" r="6"/><circle cx="150" cy="58" r="6"/><circle cx="210" cy="58" r="6"/><circle cx="270" cy="58" r="6"/><circle cx="330" cy="58" r="6"/><circle cx="390" cy="58" r="6"/><circle cx="450" cy="58" r="6"/><circle cx="510" cy="58" r="6"/><circle cx="570" cy="58" r="6"/></g>
+  </svg>
   <h1>相干訊號與空間平滑</h1>
-  <p class="lead">兩支 MATLAB 教學程式處理的是同一件事：當干擾其實是訊號自己的回音時，陣列演算法為什麼會失效，又該怎麼修。這一頁把程式的每個步驟改成可以動手調的圖，由上往下讀就是程式的執行順序。</p>
+  <dl class="credits">
+    <dt>製作人</dt><dd>葉安哲、蔡行宇</dd>
+    <dt>指導教授</dt><dd>張順雄 教授</dd>
+  </dl>
+  <div class="refs">
+    <h2>參考資料</h2>
+    <ol>
+      <li>T.-J. Shan, M. Wax, and T. Kailath, “On spatial smoothing for direction-of-arrival estimation of coherent signals,” <cite>IEEE Trans. Acoust., Speech, Signal Process.</cite>, vol. ASSP-33, no. 4, pp. 806–811, Aug. 1985.</li>
+      <li>SCAS SP-03 MATLAB 教學程式：Example 1〈Shan-Kailath FBSS Rank Restoration〉、Example 2〈Frost vs. Smoothed Frost, Coherent Sources〉。</li>
+    </ol>
+  </div>
 </header>
+
+<section class="intro">
+  <p class="lead">兩支 MATLAB 教學程式處理的是同一件事：當干擾其實是訊號自己的回音時，陣列演算法為什麼會失效，又該怎麼修。這一頁把程式的每個步驟改成可以動手調的圖，由上往下讀就是程式的執行順序。</p>
+</section>
 
 <section>
   <div class="two">
